@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Jarvis MiniApp</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { color-scheme: dark; }
+    body { margin:0; font-family:'Inter',sans-serif; background:#0b1220; color:#e5e7eb; }
+    .wrap { padding:12px; display:flex; flex-direction:column; gap:12px; min-height:100vh; padding-bottom:70px; }
+    .card { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07); border-radius:14px; padding:12px; box-shadow:0 10px 30px rgba(0,0,0,0.25); backdrop-filter: blur(6px); }
+    .title { font-size:18px; font-weight:700; margin:0 0 6px; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; }
+    .pill { padding:6px 10px; border-radius:10px; background:#111827; border:1px solid #1f2937; font-size:12px; transition: all .25s ease; }
+    .pill.online { background:#0b3b22; border-color:#16a34a; color:#bbf7d0; }
+    .pill.offline { background:#3f1d2e; border-color:#f87171; color:#fecdd3; }
+    .kpi { flex:1; min-width:120px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:10px; }
+    .kpi h4 { margin:0; font-size:12px; color:#94a3b8; font-weight:600; }
+    .kpi div { font-size:18px; font-weight:700; color:#00f5d4; }
+    .bar { position:relative; height:8px; background:#1f2937; border-radius:6px; overflow:hidden; }
+    .bar span { position:absolute; inset:0; background:linear-gradient(90deg,#00f5d4,#22d3ee); transition: width .4s ease; }
+    ul { margin:6px 0 0; padding-left:16px; color:#cbd5e1; font-size:13px; }
+    .tag { display:inline-block; padding:2px 6px; border-radius:6px; background:#0ea5e9; color:#0b1220; font-weight:600; font-size:11px; }
+    .col { flex:1; min-width:180px; }
+    .board-col h4 { margin:0 0 6px; font-size:13px; color:#cbd5e1; }
+    .item { padding:8px; border-radius:10px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); margin-bottom:6px; font-size:13px; }
+    .event { padding:8px; border-left:3px solid #00f5d4; background:#0b1220; border-radius:8px; margin-bottom:6px; font-size:13px; }
+    .muted { color:#94a3b8; font-size:12px; }
+    .progress-block { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:10px; }
+    .progress-head { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#cbd5e1; }
+    .progress-val { font-weight:700; color:#00f5d4; }
+    /* Bottom nav */
+    .bottom-nav { position:fixed; bottom:0; left:0; right:0; background:rgba(11,18,32,0.95); border-top:1px solid #1f2937; display:flex; justify-content:space-around; padding:8px 0; backdrop-filter: blur(8px); }
+    .nav-btn { flex:1; text-align:center; color:#cbd5e1; font-size:12px; } 
+    .nav-btn span { display:block; font-size:16px; margin-bottom:2px; }
+    .fade { animation: fadeIn .35s ease; }
+    @keyframes fadeIn { from {opacity:0; transform: translateY(6px);} to {opacity:1; transform: translateY(0);} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="row" style="align-items:center; justify-content:space-between;" class="fade">
+      <div><div class="title">Jarvis MiniApp</div><div class="muted">Живые метрики и задачи</div></div>
+      <div id="status-pill" class="pill">Статус: …</div>
+    </div>
+
+    <div class="card fade">
+      <div class="row" style="gap:10px;">
+        <div class="kpi"><h4>Всего токенов</h4><div id="tokens-total">—</div></div>
+        <div class="kpi"><h4>Вход</h4><div id="tokens-in">—</div></div>
+        <div class="kpi"><h4>Выход</h4><div id="tokens-out">—</div></div>
+      </div>
+      <div class="muted" style="margin:8px 0 4px;">Прогноз (часы)</div>
+      <div class="bar"><span id="remaining-bar" style="width:50%"></span></div>
+      <div id="remaining" class="muted" style="margin-top:4px;">—</div>
+    </div>
+
+    <div class="card fade">
+      <div class="progress-block">
+        <div class="progress-head">
+          <span>Прогресс бота</span>
+          <span id="bot-progress-val" class="progress-val">—</span>
+        </div>
+        <div class="bar" style="margin-top:6px;"><span id="bot-progress" style="width:20%"></span></div>
+        <div class="muted" id="bot-progress-note" style="margin-top:4px;">Работаем…</div>
+      </div>
+    </div>
+
+    <div class="card fade">
+      <div class="title" style="font-size:16px;">Текущие задачи</div>
+      <div id="tasks"></div>
+    </div>
+
+    <div class="card fade">
+      <div class="title" style="font-size:16px;">Доска задач</div>
+      <div class="row board">
+        <div class="col board-col"><h4>Принял</h4><div id="board-todo"></div></div>
+        <div class="col board-col"><h4>Выполняю</h4><div id="board-doing"></div></div>
+        <div class="col board-col"><h4>Готово</h4><div id="board-done"></div></div>
+      </div>
+    </div>
+
+    <div class="card fade">
+      <div class="title" style="font-size:16px;">Лента событий</div>
+      <div id="events"></div>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="nav-btn" onclick="scrollToSection('tasks')"><span>🗂</span>Задачи</div>
+    <div class="nav-btn" onclick="scrollToSection('board-todo')"><span>📌</span>Доска</div>
+    <div class="nav-btn" onclick="scrollToSection('events')"><span>⚡</span>События</div>
+    <div class="nav-btn" onclick="scrollToSection('bot-progress')"><span>🤖</span>Бот</div>
+  </div>
+
+<script>
+const API = 'http://localhost:3001/api/v1/metrics'; // поменяй на gateway JSON, если найдёшь эндпоинт
+const tTotal = document.getElementById('tokens-total');
+const tIn = document.getElementById('tokens-in');
+const tOut = document.getElementById('tokens-out');
+const tRem = document.getElementById('remaining');
+const tBar = document.getElementById('remaining-bar');
+const tasksBox = document.getElementById('tasks');
+const eventsBox = document.getElementById('events');
+const statusPill = document.getElementById('status-pill');
+const botProg = document.getElementById('bot-progress');
+const botProgVal = document.getElementById('bot-progress-val');
+const botProgNote = document.getElementById('bot-progress-note');
+const boardCols = {
+  todo: document.getElementById('board-todo'),
+  doing: document.getElementById('board-doing'),
+  done: document.getElementById('board-done'),
+};
+
+function setText(el, txt) { el.textContent = txt; }
+
+function renderTokens(data) {
+  const tokens = data.tokens || {}; 
+  const total = (tokens.input||0) + (tokens.output||0);
+  setText(tTotal, total ? total.toLocaleString('ru-RU') : '—');
+  setText(tIn, tokens.input ? tokens.input.toLocaleString('ru-RU') : '—');
+  setText(tOut, tokens.output ? tokens.output.toLocaleString('ru-RU') : '—');
+  const rem = tokens.remainingHours ?? 0;
+  setText(tRem, rem ? rem.toFixed(1) + ' ч' : '—');
+  const pct = Math.max(5, Math.min(100, (rem/12)*100 || 5));
+  tBar.style.width = pct + '%';
+}
+
+function renderStatus(data) {
+  const online = data.server?.online;
+  statusPill.classList.toggle('online', !!online);
+  statusPill.classList.toggle('offline', !online);
+  statusPill.textContent = online ? 'Статус: online' : 'Статус: offline';
+  tasksBox.innerHTML = '';
+  const list = data.server?.tasks || [];
+  if (!list.length) tasksBox.innerHTML = '<div class="muted">Нет активных задач</div>';
+  list.forEach(t => {
+    const el = document.createElement('div');
+    el.className = 'item fade';
+    el.textContent = t;
+    tasksBox.appendChild(el);
+  });
+}
+
+function renderBoard(data) {
+  const board = data.board || {todo:[],doing:[],done:[]};
+  ['todo','doing','done'].forEach(k => {
+    const box = boardCols[k];
+    box.innerHTML = '';
+    if (!board[k]?.length) { box.innerHTML = '<div class="muted">Пусто</div>'; return; }
+    board[k].forEach(item => {
+      const el = document.createElement('div');
+      el.className = 'item fade';
+      el.textContent = item;
+      box.appendChild(el);
+    });
+  });
+}
+
+function renderEvents(data) {
+  eventsBox.innerHTML = '';
+  const ev = data.server?.events || [];
+  if (!ev.length) { eventsBox.innerHTML = '<div class="muted">Пока нет событий</div>'; return; }
+  ev.forEach(e => {
+    const el = document.createElement('div');
+    el.className = 'event fade';
+    el.textContent = e;
+    eventsBox.appendChild(el);
+  });
+}
+
+function renderBotProgress(data) {
+  // Если нет данных — ставим заглушку 40%
+  const p = data.botProgress?.percent ?? 40;
+  botProg.style.width = Math.max(5, Math.min(100, p)) + '%';
+  botProgVal.textContent = Math.round(p) + '%';
+  botProgNote.textContent = data.botProgress?.note || 'Работаю над задачами';
+}
+
+async function fetchData() {
+  try {
+    const res = await fetch(API);
+    if (!res.ok) throw new Error('bad status');
+    return await res.json();
+  } catch (e) {
+    return null;
+  }
+}
+
+async function refresh() {
+  const data = await fetchData();
+  if (!data) return;
+  renderTokens(data);
+  renderStatus(data);
+  renderBoard(data);
+  renderEvents(data);
+  renderBotProgress(data);
+}
+
+function scrollToSection(id) {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({behavior:'smooth'});
+}
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
